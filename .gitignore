@@ -10,3 +10,7 @@ logs/
 .env
 .env.*
 node_modules/
+
+venv/
+__pycache__/
+*.pyc
