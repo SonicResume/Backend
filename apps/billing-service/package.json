@@ -1,0 +1,16 @@
+{
+  "name": "@hermes/billing-service",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@hermes/prisma": "*",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "firebase-admin": "^12.7.0",
+    "stripe": "^17.3.0"
+  }
+}
