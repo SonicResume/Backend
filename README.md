@@ -1,9 +1,3 @@
-Good — a clean README is what turns this from “working backend” into “real product.”
-
-Here’s a **ready-to-use README.md** tailored to your exact stack:
-
----
-
 # 🚀 AI Backend (Face + Image + Audio + Video API)
 
 A GPU-accelerated FastAPI backend for:
@@ -161,44 +155,3 @@ FastAPI
  ├── FFmpeg (video pipeline)
  └── Async worker system
 ```
-
----
-
-## ⚡ GPU Support
-
-Automatically uses:
-
-* CUDAExecutionProvider (preferred)
-* CPU fallback (if CUDA missing)
-
-Check:
-
-```bash
-python -c "import onnxruntime as ort; print(ort.get_available_providers())"
-```
-
----
-
-## 📁 Project Structure
-
-```
-backend/
- ├── main.py
- ├── vector_store.py
- ├── stream_engine.py
- ├── engine/
- ├── config/
- ├── routes/
- ├── services/
- ├── pictures/generated/
- └── workflow_flux.json
-```
-
----
-
-## 🧠 Notes
-
-* Uses in-memory identity DB (upgradeable to Redis/Postgres)
-* ComfyUI must be running at `127.0.0.1:8188`
-* CUDA optional but recommended
-
