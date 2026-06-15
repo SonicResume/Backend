@@ -1,16 +1,19 @@
-node_modules/
-.env
-.env.*
-dist/
-build/
-.DS_Store
-logs/
-*.log
-.env
-.env
-.env.*
-node_modules/
-
 venv/
 __pycache__/
 *.pyc
+
+# databases
+*.db
+
+# uploads / generated
+uploads/
+pictures/generated/
+
+# env
+.env
+
+# node stuff (if frontend included)
+node_modules/
+
+# logs
+*.log
