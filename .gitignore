@@ -1,15 +1,28 @@
-# Python env
-music-env/
+# environments
 venv/
+music-env/
 
-# Python cache
+# python cache
 __pycache__/
 *.pyc
 
-# Node
-node_modules/
+# local DB / indexes
+faces.index
+faces.json
 
-# Databases / media
-*.db
-videos/
-images/
+# test / temp files
+test.jpg
+test_*.py
+embed_image.py
+create_image.py
+
+# OS junk
+.DS_Store
+
+# modal
+.modal/
+
+# random experiments
+ano
+kk
+a*
