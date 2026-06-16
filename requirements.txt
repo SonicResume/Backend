@@ -1,4 +1,10 @@
+fastapi
+uvicorn[standard]
+httpx
+
 insightface
 onnxruntime
 opencv-python
 numpy
+
+edge-tts
