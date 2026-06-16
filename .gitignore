@@ -9,15 +9,33 @@ __pycache__/
 # local DB / indexes
 faces.index
 faces.json
+*.db
+face_app/*.db
+
+# generated images
+images/
+
+# ML models
+*.pkl
+*.h5
+*.pt
+*.onnx
 
 # test / temp files
 test.jpg
 test_*.py
 embed_image.py
 create_image.py
+fixed.py
+modal_image.py
 
 # OS junk
 .DS_Store
+
+# editor
+.vscode/
+.idea/
+*.swp
 
 # modal
 .modal/
@@ -25,4 +43,3 @@ create_image.py
 # random experiments
 ano
 kk
-a*
