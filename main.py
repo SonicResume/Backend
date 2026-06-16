@@ -28,8 +28,6 @@ from stream_engine import RealtimeFaceEngine
 from vector_store import VectorStore
 from pydantic import BaseModel
 
-app = FastAPI()
-
 MEDIA_DIR = Path("media")
 MEDIA_DIR.mkdir(exist_ok=True)
 
@@ -69,7 +67,7 @@ providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
 # =========================
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    face.prepare(ctx_id=0, det_size=(640, 640))
+    face.prepare(ctx_id=0, det_size=(1280, 1280))
     print("[SYSTEM] Providers:", providers)
     print("[SYSTEM] GPU FACE ENGINE READY")
     yield
@@ -157,15 +155,33 @@ def normalize(v):
     return v / (np.linalg.norm(v) + 1e-8)
 
 def get_embedding(image_path: str):
+    print("\n🔥 FACE PIPELINE START")
+
     img = cv2.imread(image_path)
+
+    print("IMG LOADED:", img is not None)
+
     if img is None:
         return None
 
+    print("IMG SHAPE:", img.shape)
+
+    # IMPORTANT: InsightFace expects RGB
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
     faces = face.get(img)
-    if not faces:
+
+    print("FACES FOUND:", len(faces))
+
+    if len(faces) == 0:
+        print("❌ NO FACE DETECTED")
         return None
 
-    return normalize(faces[0].embedding)
+    emb = normalize(faces[0].embedding)
+
+    print("✅ FACE EMBEDDING OK")
+
+    return emb
 
 def find_identity(vec, threshold=0.45):
     best_id, best_score = None, -1.0
@@ -183,13 +199,6 @@ def find_identity(vec, threshold=0.45):
         return best_id, best_score
 
     return None, best_score
-
-# =========================
-# ROOT
-# =========================
-@app.get("/")
-def root():
-    return {"status": "GPU biometric service running"}
 
 # =========================
 # EMAIL SERVICE
@@ -215,16 +224,25 @@ async def upload_face(file: UploadFile = File(...)):
 
     existing, score = find_identity(vec)
 
+    # 🔥 if already known face
     if existing:
-        return {"identity_id": existing, "matched": True, "score": score}
+        return {
+            "identity_id": existing,
+            "matched": True,
+            "score": score
+        }
 
+    # 🆕 new identity
     new_id = str(uuid.uuid4())
     IDENTITY_DB[new_id] = vec.tolist()
 
-    # ALSO ADD TO FAISS
+    # add to FAISS index
     vector_db.add(vec, new_id)
 
-    return {"identity_id": new_id, "matched": False}
+    return {
+        "identity_id": new_id,
+        "matched": False
+    }
 
 # =========================
 # REALTIME STREAM
