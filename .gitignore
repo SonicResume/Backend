@@ -1,19 +1,15 @@
+# Python env
+music-env/
 venv/
+
+# Python cache
 __pycache__/
 *.pyc
 
-# databases
-*.db
-
-# uploads / generated
-uploads/
-pictures/generated/
-
-# env
-.env
-
-# node stuff (if frontend included)
+# Node
 node_modules/
 
-# logs
-*.log
+# Databases / media
+*.db
+videos/
+images/
