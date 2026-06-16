@@ -1,12 +1,10 @@
 fastapi
 uvicorn[standard]
+gunicorn
 httpx
-
 numpy
 opencv-python-headless
-
-insightface==0.7.3
+insightface
 onnxruntime==1.24.4
-
 edge-tts
-onnxruntime==1.24.4
+faiss-cpu
