@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from pathlib import Path
 from contextlib import asynccontextmanager
 from email.mime.text import MIMEText
+from fastapi import UploadFile, File
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 
 import json
 import uuid
@@ -18,16 +21,44 @@ import edge_tts
 import smtplib
 import os
 os.environ["ORT_LOG_LEVEL"] = "3"
+import subprocess
 
 from insightface.app import FaceAnalysis
 from stream_engine import RealtimeFaceEngine
 from vector_store import VectorStore
 from pydantic import BaseModel
 
+app = FastAPI()
+
+MEDIA_DIR = Path("media")
+MEDIA_DIR.mkdir(exist_ok=True)
+
+VIDEO_DIR = Path("videos")
+AUDIO_DIR = Path("audio")
+OUTPUT_DIR = Path("outputs")
+
+VIDEO_DIR.mkdir(exist_ok=True)
+AUDIO_DIR.mkdir(exist_ok=True)
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+class VideoRequest(BaseModel):
+    video_path: str
+    audio_path: str
+
 class AudioRequest(BaseModel):
     text: str
     voice: str = "en-US-JennyNeural"
 
+# =========================
+# WORKFLOW
+# =========================
+
+WORKFLOWS = {
+    "flux": "workflow_flux.json",
+    "juggernaut": "corperate_headshots.json",
+    "dream": "anime_headshots.json",
+    "anything": "anime_characters.json",
+}
 # =========================
 # GPU PROVIDERS
 # =========================
@@ -221,33 +252,33 @@ async def stream_frame(file: UploadFile = File(...)):
 @app.post("/generate-image")
 async def generate(data: GenerateImageRequest):
 
-    workflow = load_workflow()
+    workflow = load_workflow("flux")
 
     workflow["2"]["inputs"]["text"] = data.prompt
+
     workflow["4"]["inputs"]["width"] = data.width
     workflow["4"]["inputs"]["height"] = data.height
     workflow["4"]["inputs"]["batch_size"] = data.batch
+
     workflow["5"]["inputs"]["seed"] = uuid.uuid4().int % 1_000_000_000
 
-    try:
-        async with httpx.AsyncClient(timeout=60) as client:
-            r = await client.post(
-                f"{COMFY_URL}/prompt",
-                json={"prompt": workflow}
-            )
-        r.raise_for_status()
-    except Exception as e:
-        raise HTTPException(502, f"ComfyUI error: {e}")
+    # ✅ THIS IS WHERE OLD SYSTEM BELONGS
+    identity_id = getattr(data, "identity_id", None)
 
-    prompt_id = r.json().get("prompt_id")
-    if not prompt_id:
-        raise HTTPException(500, "No prompt_id")
+    if identity_id and identity_id in IDENTITY_DB:
+        workflow["2"]["inputs"]["text"] = (
+            "identity lock: same person, consistent facial structure, "
+            "preserve identity, do not change face, "
+            + data.prompt
+        )
 
-    TASKS[prompt_id] = {"status": "processing", "images": []}
+    async with httpx.AsyncClient() as client:
+        r = await client.post(
+            f"{COMFY_URL}/prompt",
+            json={"prompt": workflow}
+        )
 
-    asyncio.create_task(worker(prompt_id, data.batch))
-
-    return {"task_id": prompt_id}
+    return r.json()
 
 # =========================
 # AUDIO GENERATION
@@ -276,10 +307,10 @@ async def generate_audio(data: AudioRequest):
 async def generate_video(data: GenerateImageRequest):
     workflow = load_workflow()
 
-    # reuse same prompt logic
+    # inject prompt
     workflow["2"]["inputs"]["text"] = data.prompt
 
-    # video-specific nodes (depends on your workflow)
+    # video settings (make sure node IDs exist in your workflow JSON)
     workflow["10"]["inputs"]["fps"] = 24
     workflow["10"]["inputs"]["frames"] = 48
 
@@ -289,10 +320,77 @@ async def generate_video(data: GenerateImageRequest):
             json={"prompt": workflow}
         )
 
-    r.raise_for_status()
-    prompt_id = r.json().get("prompt_id")
+        r.raise_for_status()
+        response = r.json()
 
-    return {"task_id": prompt_id, "type": "video"}
+    prompt_id = response.get("prompt_id")
+
+    return {
+        "task_id": prompt_id,
+        "type": "video"
+    }
+
+# =========================
+# COMPOSE-VIDEO
+# =========================
+
+@app.post("/compose-video")
+async def compose_video(
+    image: UploadFile = File(...),
+    audio: UploadFile = File(...)
+):
+    job_id = uuid.uuid4().hex
+
+    img_path = MEDIA_DIR / f"{job_id}.png"
+    audio_path = MEDIA_DIR / f"{job_id}.mp3"
+    output_path = MEDIA_DIR / f"{job_id}.mp4"
+
+    # save uploads
+    with open(img_path, "wb") as f:
+        f.write(await image.read())
+
+    with open(audio_path, "wb") as f:
+        f.write(await audio.read())
+
+    # ffmpeg command (simple slideshow video)
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-loop", "1",
+        "-i", str(img_path),
+        "-i", str(audio_path),
+        "-c:v", "libx264",
+        "-tune", "stillimage",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-pix_fmt", "yuv420p",
+        "-shortest",
+        str(output_path)
+    ]
+
+    subprocess.run(cmd, check=True)
+
+    return {
+        "status": "done",
+        "video_url": f"/media/{job_id}.mp4"
+    }
+
+# =========================
+# TASK ID 
+# =========================
+
+@app.get("/task/{task_id}")
+async def get_task(task_id: str):
+    async with httpx.AsyncClient() as client:
+        r = await client.get(f"{COMFY_URL}/history/{task_id}")
+        r.raise_for_status()
+        return r.json()
+
+# =========================
+# MOUNT
+# =========================
+
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # =========================
 # IMAGE TO VIDEO
